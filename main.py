@@ -2,6 +2,7 @@ from pybrain.structure import SigmoidLayer
 from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import BackpropTrainer
 from pybrain.tools.shortcuts import buildNetwork
+import csv
 
 __author__ = 'tomas'
 
@@ -13,18 +14,15 @@ def build_network():
 def build_training_dataset(filename):
     ds = SupervisedDataSet(4, 1)
     with open(filename, 'rb') as f:
-        lis = [line.split() for line in f]
-        for index, data in enumerate(lis):
-            if index == 0:
-                continue
-            data = data[0].split(',')
-            if data[4] == '-1':
+        reader = csv.reader(f)
+        for index, data in enumerate(reader):
+            if data[4] == '-1' or index == 0:
                 continue
             inp = (int(data[0]), int(data[1]), int(data[2]), int(data[3]))
             out = (int(data[4]),)
             ds.addSample(inp, out)
-            print "line{0}: input {1} -> output {2}".format(index, inp, out)
-    return ds
+            print "line{0}: input {1} -> output {2}".format(index, inp, out)         
+        return ds
 
 
 def train_network(network, training_dataset):
