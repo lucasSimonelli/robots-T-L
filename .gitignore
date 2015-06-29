@@ -58,3 +58,7 @@ target/
 
 *.iml
 .idea/
+
+#Heavy CSV files
+heavyData/
+
