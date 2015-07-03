@@ -1,10 +1,5 @@
-from pybrain.structure import SigmoidLayer
-from pybrain.datasets import SupervisedDataSet
-from pybrain.supervised.trainers import BackpropTrainer
-from pybrain.tools.shortcuts import buildNetwork
+from sklearn import tree
 import csv
-
-__author__ = 'tomas'
 
 class TestData(object):
     """Anemic class to hold test data"""
@@ -21,28 +16,39 @@ class TestData(object):
             self.gender = int(gender)
 
         self.merchantid = int(merchantid)
-        
-def build_network():
-    return buildNetwork(4, 8, 1, bias=True, hiddenclass=SigmoidLayer)
 
+    def toList():
+        return [self.age_range, self.gender, self.merchantid]
+ 
 # Por ahi esto no entra todo en memoria. Ver
 def build_training_dataset(filename):
-    ds = SupervisedDataSet(4, 1)
+    ds = []
+    ds.append([])
+    ds.append([])
+    numberOfLoyals = 0;
+    numberOfOneTimers = 0;
     with open(filename, 'rb') as f:
+        print "Building csv"
         reader = csv.reader(f)
+        print "CSV built"
         for index, data in enumerate(reader):
-            if data[4] == '-1' or index == 0:
+            if index == 100000:
+                break;
+            if data[4] == '-1' or index == 0 or data[4] == '' or data[1] == '' or data[2] == '' or data[3] == '':
                 continue
-            inp = (int(data[0]), int(data[1]), int(data[2]), int(data[3]))
-            out = (int(data[4]),)
-            ds.addSample(inp, out)
-            print "line{0}: input {1} -> output {2}".format(index, inp, out)         
+            inp = [int(data[1]), int(data[2]), int(data[3])]
+            if (int(data[4])==0):
+                #Balance
+                if (numberOfOneTimers <= numberOfLoyals):
+                    ds[1].append(-1)
+                    numberOfOneTimers = numberOfOneTimers + 1;
+                    ds[0].append(inp)
+            else:
+                ds[1].append(1)    
+                numberOfLoyals = numberOfLoyals + 1;  
+                ds[0].append(inp)
         return ds
 
-
-def train_network(network, training_dataset):
-    trainer = BackpropTrainer(module=network, dataset=training_dataset)
-    trainer.trainUntilConvergence()
 
 # Por ahi esto no entra todo en memoria. Ver
 # Devuelve lista de TestData
@@ -64,20 +70,23 @@ def buildTestData(userMerchantFile, userInfoFile):
     return returnData
 
 
-def data():
-    print buildTestData("./heavyData/test_format1.csv","./heavyData/user_info_format1.csv")
-
+def toList(testData):
+    return testData.toList()
 
 def main():
-    network = build_network()
+
+    
+
     training_dataset = build_training_dataset("./datasource.csv")
-    train_network(network, training_dataset)
+    print len(training_dataset[1])
+    clf = tree.DecisionTreeClassifier(max_depth=10)
+    clf = clf.fit(training_dataset[0],training_dataset[1])
 
     testData = buildTestData("./heavyData/test_format1.csv","./heavyData/user_info_format1.csv")
     for index, item in enumerate(testData):
         if index > 100:
             break;
-        print "{0},{1},{2}".format(item.userid, item.merchantid, network.activate((item.userid, item.age_range, item.gender, item.merchantid))[0])
+        print "{0},{1},{2}".format(item.userid, item.merchantid, clf.predict_proba([[item.age_range, item.gender, item.merchantid]]))
 
 
 if __name__ == "__main__":
