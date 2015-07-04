@@ -120,11 +120,11 @@ def main():
     for item in training_dataset:
         ins.append([item.age_range, item.gender, item.merchantid])
         outs.append(item.label)
-    clf = tree.DecisionTreeClassifier(max_depth=20)
+    clf = tree.DecisionTreeClassifier(max_depth=32, min_samples_leaf=1)
     clf = clf.fit(ins, outs)
 
     print "Testing tree with train data"
-    #test_agains_training_set(clf, training_dataset)
+    test_agains_training_set(clf, training_dataset)
 
     print "Computing ROC curve"
     compute_roc_curve(clf)
