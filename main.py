@@ -1,10 +1,14 @@
 from sklearn import tree
+from sklearn.metrics import roc_curve, auc
+import pylab as pl
 import csv
 import sys
 
+
 class TestData(object):
     """Anemic class to hold test data"""
-    def __init__(self, userid, age_range, gender, merchantid, label):
+
+    def __init__(self, userid, age_range, gender, merchantid, label='0'):
         super(TestData, self).__init__()
         self.userid = int(userid)
         if age_range == '':
@@ -18,40 +22,33 @@ class TestData(object):
 
         self.merchantid = int(merchantid)
         self.label = int(label)
-    def toList():
+
+    def toList(self):
         return [self.age_range, self.gender, self.merchantid]
- 
-# Por ahi esto no entra todo en memoria. Ver
+
+
+#Max is about 7M so this should be enough to cover all records
+limit = 10000000
 def build_training_dataset(filename):
-    ds = []
-    ds.append([])
-    ds.append([])
-    numberOfLoyals = 0;
-    numberOfOneTimers = 0;
+    returnData = []
+    csv.field_size_limit(sys.maxsize)
+
     with open(filename, 'rb') as f:
         print "Building csv"
         reader = csv.reader(f)
-        print "CSV built"
-        for index, data in enumerate(reader):
-            if index == 100000:
-                break;
-            if data[4] == '-1' or index == 0 or data[4] == '' or data[1] == '' or data[2] == '' or data[3] == '':
+        for index, row in enumerate(reader):
+            if (index % 1000000) == 0:
+                print "Processed {0} records".format(index)
+            if index == 0 or row[4] == '-1':
                 continue
-            inp = [int(data[1]), int(data[2]), int(data[3])]
-            if (int(data[4])==0):
-                #Balance
-                ds[1].append(-1)
-                numberOfOneTimers = numberOfOneTimers + 1;
-                ds[0].append(inp)
-            else:
-                ds[1].append(1)    
-                numberOfLoyals = numberOfLoyals + 1;  
-                ds[0].append(inp)
-        return ds
+            if index >= limit:
+                break
+            returnData.append(TestData(userid=row[0], age_range=row[1], gender=row[2], merchantid=row[3], label=row[4]))
+        print "CSV built"
+        return returnData
 
 
-# Por ahi esto no entra todo en memoria. Ver
-# Devuelve lista de TestData
+
 def buildTestData(testData):
     returnData = []
     print "Building test data"
@@ -59,45 +56,85 @@ def buildTestData(testData):
     with open(testData, 'rb') as userMerchantF:
         reader = csv.reader(userMerchantF)
         for index, row in enumerate(reader):
-            if index == 0 or row[4] == '':
+            if index % 1000000 == 0:
+                print "Processed {0} records".format(index)
+            if index == 0 or row[4] == '-1':
                 continue
-            if index == 30000:
-                break;
-            returnData.append(TestData(userid=row[0], age_range=row[1], gender=row[2], merchantid = row[3], label=row[4]))
+            if index >= limit:
+                break
+            returnData.append(TestData(userid=row[0], age_range=row[1], gender=row[2], merchantid=row[3]))
+    print "Test data built"
     return returnData
 
-
-def toList(testData):
-    return testData.toList()
-
-def main():
-    training_dataset = build_training_dataset("./datasource.csv")
-    print "Number of records: {0}".format(len(training_dataset[1])+len(training_dataset[0]))
-    clf = tree.DecisionTreeClassifier(max_depth=8)
-    clf = clf.fit(training_dataset[0],training_dataset[1])
-
-    testData = buildTestData("test_format2.csv")
+def test_agains_training_set(clf, training_dataset):
     totalError = 0.0
     cont = 0
     correct = 0
-    print "Testing tree with test data"
-    for index, item in enumerate(testData):
+    for index, item in enumerate(training_dataset):
         proba = clf.predict_proba([[item.age_range, item.gender, item.merchantid]])[0][1]
         classification = clf.predict([[item.age_range, item.gender, item.merchantid]])[0]
         error = 0.0
-        if item.label==1:
-            error+=1-proba
-            if classification==1:
-                correct+=1
+
+        if item.label == 1:
+            error += 1 - proba
+            if classification == 1:
+                correct += 1
         else:
-            error+=proba
-            if classification==-1:
-                correct+=1
-        totalError+=error
-        cont+=1
-    print "Error total: {0}%".format(totalError*100 / cont)
-    print "Correctos: {0}. Incorrectos: {1}".format(correct, cont-correct)
-    print "Porcentaje correctos: {0}%".format(correct*100 / cont)
+            error += proba
+            if classification == 0:
+                correct += 1
+        cont += 1
+        totalError += error
+    print "Error total: {0}%".format(totalError * 100 / cont)
+    print "Correctos: {0}. Incorrectos: {1}".format(correct, cont - correct)
+    print "Porcentaje correctos: {0}%".format(correct * 100 / cont)
+
+def compute_roc_curve(clf):
+    testDataset = buildTestData('test_format2.csv')
+    y_true = []
+    y_score = []
+    for testData in testDataset:
+        classification = clf.predict([[testData.age_range, testData.gender, testData.merchantid]])[0]
+        if classification == 0:
+            proba = clf.predict_proba([[testData.age_range, testData.gender, testData.merchantid]])[0][0]
+        else:
+            proba = clf.predict_proba([[testData.age_range, testData.gender, testData.merchantid]])[0][1]
+        y_true.append(classification)
+        y_score.append(proba)
+    fpr, tpr, thresholds = roc_curve(y_true, y_score)
+    roc_auc = auc(fpr, tpr)
+    print "Area under the ROC curve : %f" % roc_auc
+    # Plot ROC curve
+    pl.clf()
+    pl.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % roc_auc)
+    pl.plot([0, 1], [0, 1], 'k--')
+    pl.xlim([0.0, 1.0])
+    pl.ylim([0.0, 1.0])
+    pl.xlabel('False Positive Rate')
+    pl.ylabel('True Positive Rate')
+    pl.title('Receiver operating characteristic example')
+    pl.legend(loc="lower right")
+    pl.show()
+
+def main():
+    training_dataset = build_training_dataset("./datasource.csv")
+    print "Number of records: {0}".format(len(training_dataset))
+    ins = []
+    outs = []
+    for item in training_dataset:
+        ins.append([item.age_range, item.gender, item.merchantid])
+        outs.append(item.label)
+    clf = tree.DecisionTreeClassifier(max_depth=18)
+    clf = clf.fit(ins, outs)
+
+    print "Testing tree with train data"
+    #test_agains_training_set(clf, training_dataset)
+
+    print "Computing ROC curve"
+    compute_roc_curve(clf)
+
+
+
 
 if __name__ == "__main__":
     main()
