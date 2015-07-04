@@ -117,7 +117,7 @@ def compute_roc_curve(clf):
     pl.show()
 
 def main():
-    training_dataset = build_training_dataset("./datasource.csv")
+    training_dataset = build_training_dataset("train_format2.csv")
     print "Number of records: {0}".format(len(training_dataset))
     ins = []
     outs = []
