@@ -7,7 +7,6 @@ import sys
 
 class TestData(object):
     """Anemic class to hold test data"""
-
     def __init__(self, userid, age_range, gender, merchantid, label='0'):
         super(TestData, self).__init__()
         self.userid = int(userid)
@@ -62,7 +61,7 @@ def buildTestData(testData):
                 continue
             if index >= limit:
                 break
-            returnData.append(TestData(userid=row[0], age_range=row[1], gender=row[2], merchantid=row[3]))
+            returnData.append(TestData(userid=row[0], age_range=row[1], gender=row[2], merchantid=row[3],label=row[4]))
     print "Test data built"
     return returnData
 
@@ -90,15 +89,12 @@ def test_agains_training_set(clf, training_dataset):
     print "Porcentaje correctos: {0}%".format(correct * 100 / cont)
 
 def compute_roc_curve(clf):
-    testDataset = buildTestData('test_format2.csv')
+    testDataset = buildTestData('processedtrain_format2.csv')
     y_true = []
     y_score = []
     for testData in testDataset:
-        classification = clf.predict([[testData.age_range, testData.gender, testData.merchantid]])[0]
-        if classification == 0:
-            proba = clf.predict_proba([[testData.age_range, testData.gender, testData.merchantid]])[0][0]
-        else:
-            proba = clf.predict_proba([[testData.age_range, testData.gender, testData.merchantid]])[0][1]
+        classification = testData.label
+        proba = clf.predict_proba([[testData.age_range, testData.gender, testData.merchantid]])[0][1]
         y_true.append(classification)
         y_score.append(proba)
     fpr, tpr, thresholds = roc_curve(y_true, y_score)
@@ -108,8 +104,8 @@ def compute_roc_curve(clf):
     pl.clf()
     pl.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % roc_auc)
     pl.plot([0, 1], [0, 1], 'k--')
-    pl.xlim([0.0, 1.0])
-    pl.ylim([0.0, 1.0])
+    pl.xlim([-0.01, 1.01])
+    pl.ylim([-0.01, 1.01])
     pl.xlabel('False Positive Rate')
     pl.ylabel('True Positive Rate')
     pl.title('Receiver operating characteristic example')
@@ -117,14 +113,14 @@ def compute_roc_curve(clf):
     pl.show()
 
 def main():
-    training_dataset = build_training_dataset("train_format2.csv")
+    training_dataset = build_training_dataset("processedtrain_format2.csv")
     print "Number of records: {0}".format(len(training_dataset))
     ins = []
     outs = []
     for item in training_dataset:
         ins.append([item.age_range, item.gender, item.merchantid])
         outs.append(item.label)
-    clf = tree.DecisionTreeClassifier(max_depth=18)
+    clf = tree.DecisionTreeClassifier(max_depth=20)
     clf = clf.fit(ins, outs)
 
     print "Testing tree with train data"
