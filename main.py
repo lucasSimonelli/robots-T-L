@@ -3,7 +3,7 @@ from sklearn.metrics import roc_curve, auc
 import pylab as pl
 import csv
 import sys
-
+import random
 
 class TestData(object):
     """Anemic class to hold test data"""
@@ -28,6 +28,7 @@ class TestData(object):
 
 #Max is about 7M so this should be enough to cover all records
 limit = 10000000
+halfFileSize = 260000*0.9
 def build_training_dataset(filename):
     returnData = []
     csv.field_size_limit(sys.maxsize)
@@ -62,10 +63,10 @@ def buildTestData(testData):
             if index >= limit:
                 break
             returnData.append(TestData(userid=row[0], age_range=row[1], gender=row[2], merchantid=row[3],label=row[4]))
-    print "Test data built"
+    print "Test data built, size %d" % len(returnData)
     return returnData
 
-def test_agains_training_set(clf, training_dataset):
+def test_against_test_set(clf, training_dataset):
     totalError = 0.0
     cont = 0
     correct = 0
@@ -88,8 +89,7 @@ def test_agains_training_set(clf, training_dataset):
     print "Correctos: {0}. Incorrectos: {1}".format(correct, cont - correct)
     print "Porcentaje correctos: {0}%".format(correct * 100 / cont)
 
-def compute_roc_curve(clf):
-    testDataset = buildTestData('processedtrain_format2.csv')
+def compute_roc_curve(clf, testDataset):
     y_true = []
     y_score = []
     for testData in testDataset:
@@ -102,7 +102,7 @@ def compute_roc_curve(clf):
     print "Area under the ROC curve : %f" % roc_auc
     # Plot ROC curve
     pl.clf()
-    pl.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % roc_auc)
+    pl.plot(fpr, tpr, label='ROC curve (area = %0.5f)' % roc_auc)
     pl.plot([0, 1], [0, 1], 'k--')
     pl.xlim([-0.01, 1.01])
     pl.ylim([-0.01, 1.01])
@@ -113,21 +113,26 @@ def compute_roc_curve(clf):
     pl.show()
 
 def main():
-    training_dataset = build_training_dataset("processedtrain_format2.csv")
+    training_dataset = build_training_dataset("train_train_format2.csv")
     print "Number of records: {0}".format(len(training_dataset))
     ins = []
     outs = []
+
     for item in training_dataset:
+        if item.label == 0:
+            if random.randint(1, 100) > 50: #Some balancing for the
+                continue
         ins.append([item.age_range, item.gender, item.merchantid])
         outs.append(item.label)
-    clf = tree.DecisionTreeClassifier(max_depth=32, min_samples_leaf=1)
+    clf = tree.DecisionTreeClassifier(max_depth=28)
     clf = clf.fit(ins, outs)
 
     print "Testing tree with train data"
-    test_agains_training_set(clf, training_dataset)
+    testDataset = buildTestData('test_train_format2.csv')
+    test_against_test_set(clf, testDataset)
 
     print "Computing ROC curve"
-    compute_roc_curve(clf)
+    compute_roc_curve(clf, testDataset)
 
 
 
